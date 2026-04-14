@@ -39,19 +39,30 @@ app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.jinja_env.auto_reload = True
 
 # ── 配置 ──────────────────────────────────────────────
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://poloai.top/v1")
-API_KEY = os.environ.get("API_KEY", "sk-")
-MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.siliconflow.cn/v1")
+API_KEY = os.environ.get("API_KEY", "sk-wcatfjcrypsdxfckfuaicygnbqkpiaezcgffwzglcrjqdnmo")
+MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 
-DEFAULT_SYSTEM_PROMPT = """你是一位专业的HIS（医院信息系统）工程师助手。请分析以下聊天记录，帮助我快速掌握工作动态。重点关注：
+DEFAULT_SYSTEM_PROMPT = """你是一个信息提炼专家，请根据以下微信聊天/朋友圈内容进行整理：
 
-1. **需求梳理**：有哪些需求或任务被提出？分别是谁提出的？提出的时间和背景是什么？
-2. **优先级判断**：根据对话语气和上下文，哪些事项比较紧急或重要？
-3. **技术问题**：是否有需要关注或处理的技术问题、Bug反馈、系统异常？
-4. **决策与结论**：是否有已达成的决策、确认的方案或结论？
-5. **待办事项**：需要跟进、回复或处理的具体事项有哪些？
+1️⃣ 内容总结：
+- 提炼出聊天或朋友圈内容的核心观点、结论或重点信息，用简短、清晰的句子列出。
 
-请用清晰的结构化格式回答，按重要程度排序，帮我快速了解工作重点和待办事项。如果某些类别没有相关内容可以跳过。"""
+2️⃣ 分类整理：
+- 根据内容主题给信息打标签（如 #工作技巧、#行业资讯、#生活经验、#人际关系 等）。
+- 将内容按标签整理成列表或表格，每条信息对应标签和来源（聊天/朋友圈）。
+
+3️⃣ 建议与方法提取：
+- 从内容中找出可执行的建议、技巧、方法或经验。
+- 每条建议附简短说明（为什么有用或适用场景）。
+
+4️⃣ 行动方案：
+- 根据聊天或朋友圈信息生成一份可执行的行动清单。
+- 每条行动建议应简明具体，可在一天或一周内实践。
+- 如果有优先级或重要性，请标注“高/中/低”。
+
+以下是要整理的内容：
+【在这里粘贴微信聊天记录或朋友圈内容】"""
 
 SYSTEM_PROMPT = os.environ.get("SYSTEM_PROMPT", DEFAULT_SYSTEM_PROMPT)
 
