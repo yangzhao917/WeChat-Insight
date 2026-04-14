@@ -40,7 +40,7 @@ app.jinja_env.auto_reload = True
 
 # ── 配置 ──────────────────────────────────────────────
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.siliconflow.cn/v1")
-API_KEY = os.environ.get("API_KEY", "sk-wcatfjcrypsdxfckfuaicygnbqkpiaezcgffwzglcrjqdnmo")
+API_KEY = os.environ.get("API_KEY", "")
 MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 
 DEFAULT_SYSTEM_PROMPT = """你是一个信息提炼专家，请根据以下微信聊天/朋友圈内容进行整理：
