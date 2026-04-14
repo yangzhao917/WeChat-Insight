@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeChat Insight - 微信群聊洞察</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #f5f5f5; --card: #fff; --primary: #07c160; --primary-hover: #06ad56;
+            --text: #1a1a1a; --text2: #666; --border: #e8e8e8; --chat-bg: #f0f0f0;
+            --sidebar-w: 320px; --danger: #e53935; --blue: #1677ff;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+        .app { display: flex; height: 100vh; }
+
+        /* ── 侧边栏 ── */
+        .sidebar { width: var(--sidebar-w); background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar-header { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+        .sidebar-header h1 { font-size: 18px; font-weight: 600; color: var(--primary); margin-bottom: 2px; }
+        .sidebar-header p { font-size: 12px; color: var(--text2); }
+
+        .sidebar-tabs { display: flex; border-bottom: 1px solid var(--border); }
+        .sidebar-tab { flex: 1; padding: 10px; text-align: center; font-size: 13px; cursor: pointer; border: none; background: none; color: var(--text2); font-weight: 500; border-bottom: 2px solid transparent; transition: all .2s; }
+        .sidebar-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+        .search-box { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+        .search-box input { width: 100%; padding: 7px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; outline: none; }
+        .search-box input:focus { border-color: var(--primary); }
+
+        #groupsPanel, #chatsPanel { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+        .session-list { flex: 1; overflow-y: auto; padding: 4px 0; min-height: 0; }
+        .session-item { padding: 10px 20px; cursor: pointer; transition: background .15s; border-left: 3px solid transparent; }
+        .session-item:hover { background: #f9f9f9; }
+        .session-item.active { background: #f0faf4; border-left-color: var(--primary); }
+        .session-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .session-meta { font-size: 11px; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .sidebar-footer { padding: 10px 16px; border-top: 1px solid var(--border); }
+        .config-btn { width: 100%; padding: 7px; background: none; border: 1px dashed var(--border); border-radius: 6px; color: var(--text2); font-size: 12px; cursor: pointer; }
+        .config-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .config-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+        .config-dot.on { background: var(--primary); } .config-dot.off { background: #ccc; }
+
+        /* ── 分组列表 ── */
+        .group-item { padding: 10px 20px; cursor: pointer; transition: background .15s; border-left: 3px solid transparent; display: flex; align-items: center; justify-content: space-between; }
+        .group-item:hover { background: #f9f9f9; }
+        .group-item.active { background: #f0f5ff; border-left-color: var(--blue); }
+        .group-name { font-size: 13px; font-weight: 500; }
+        .group-count { font-size: 11px; color: var(--text2); background: var(--chat-bg); padding: 1px 8px; border-radius: 10px; }
+        .add-group-btn { margin: 8px 16px; padding: 7px; border: 1px dashed var(--border); border-radius: 6px; text-align: center; cursor: pointer; font-size: 13px; color: var(--text2); }
+        .add-group-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+        /* ── 主区域 ── */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .main-header { padding: 14px 24px; background: var(--card); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .main-header h2 { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+        .btn { padding: 6px 14px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500; transition: all .2s; }
+        .btn-primary { background: var(--primary); color: #fff; } .btn-primary:hover { background: var(--primary-hover); } .btn-primary:disabled { opacity:.5; cursor: not-allowed; }
+        .btn-blue { background: var(--blue); color: #fff; } .btn-blue:hover { background: #0958d9; }
+        .btn-outline { background: #fff; border: 1px solid var(--border); color: var(--text); } .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .btn-danger { background: none; border: 1px solid var(--danger); color: var(--danger); } .btn-danger:hover { background: #fff1f0; }
+
+        .limit-select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; outline: none; }
+
+        .content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+        .welcome { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text2); }
+        .welcome-inner { text-align: center; }
+        .welcome-inner .icon { font-size: 48px; margin-bottom: 12px; }
+
+        /* ── 卡片 ── */
+        .card { background: var(--card); border-radius: 10px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+        .card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--primary); }
+        .card-blue h3 { color: var(--blue); }
+        .summary-content { font-size: 13px; line-height: 1.8; white-space: pre-wrap; }
+        .summary-content strong { color: var(--primary); }
+
+        .stats-row { display: flex; gap: 12px; margin-bottom: 16px; }
+        .stat-card { flex: 1; background: var(--card); border-radius: 10px; padding: 14px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+        .stat-value { font-size: 22px; font-weight: 700; color: var(--primary); }
+        .stat-label { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+        .tabs { display: flex; gap: 4px; background: var(--chat-bg); border-radius: 8px; padding: 3px; margin-bottom: 16px; }
+        .tab { flex: 1; padding: 7px; text-align: center; border-radius: 6px; font-size: 13px; cursor: pointer; border: none; background: none; font-weight: 500; color: var(--text2); }
+        .tab.active { background: #fff; color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+        /* ── 问答 ── */
+        .qa-input-row { display: flex; gap: 8px; margin-bottom: 12px; }
+        .qa-input-row input { flex: 1; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; outline: none; }
+        .qa-input-row input:focus { border-color: var(--primary); }
+        .qa-history { display: flex; flex-direction: column; gap: 12px; }
+        .qa-item-q { background: #dcf8e8; padding: 8px 12px; border-radius: 10px; font-size: 13px; align-self: flex-end; max-width: 80%; }
+        .qa-item-a { background: var(--chat-bg); padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; max-width: 90%; }
+
+        /* ── 消息列表 ── */
+        .msg-item { padding: 6px 0; border-bottom: 1px solid #f5f5f5; font-size: 12px; }
+        .msg-item:last-child { border-bottom: none; }
+        .msg-sender { font-weight: 500; color: var(--primary); margin-right: 6px; }
+        .msg-time { color: #999; font-size: 11px; }
+        .msg-content { margin-top: 3px; line-height: 1.5; color: #333; font-size: 13px; }
+
+        /* ── 分组成员管理 ── */
+        .member-list { margin-top: 12px; }
+        .member-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; }
+        .member-remove { color: var(--danger); cursor: pointer; font-size: 12px; border: none; background: none; }
+        .member-remove:hover { text-decoration: underline; }
+
+        /* ── 添加成员弹窗 ── */
+        .add-member-list { max-height: 320px; overflow-y: auto; margin: 12px 0; }
+        .add-member-item { display: flex; align-items: center; padding: 8px 4px; border-bottom: 1px solid #f5f5f5; cursor: pointer; font-size: 13px; }
+        .add-member-item:hover { background: #f9f9f9; }
+        .add-member-item.selected { background: #f0faf4; }
+        .add-member-cb { margin-right: 10px; accent-color: var(--primary); }
+
+        /* ── 加载/弹窗 ── */
+        .loading { display: inline-block; color: var(--text2); font-size: 13px; }
+        .loading::after { content: ''; animation: dots 1.2s steps(3,end) infinite; }
+        @keyframes dots { 0%{content:''} 33%{content:'.'} 66%{content:'..'} 100%{content:'...'} }
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #e0e0e0; border-top-color: var(--primary); border-radius: 50%; animation: spin .6s linear infinite; margin-right: 6px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .modal-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; z-index: 100; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: #fff; border-radius: 12px; padding: 24px; width: 440px; max-width: 90vw; max-height: 80vh; overflow-y: auto; }
+        .modal h3 { font-size: 15px; margin-bottom: 16px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--text2); }
+        .form-group input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; outline: none; }
+        .form-group input:focus { border-color: var(--primary); }
+        .form-group small { display: block; margin-top: 3px; font-size: 11px; color: #999; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+        /* ── 预览确认区 ── */
+        .preview-section { margin-bottom: 14px; }
+        .preview-section-title { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .preview-section-title .badge { background: var(--primary); color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 500; }
+        .preview-section-title .badge-blue { background: var(--blue); }
+        .preview-pre { background: #f6f8fa; padding: 14px; border-radius: 8px; font-size: 12px; line-height: 1.6; max-height: 400px; overflow: auto; white-space: pre-wrap; word-break: break-all; border: 1px solid var(--border); }
+        .preview-prompt { background: #fffbe6; padding: 12px; border-radius: 8px; font-size: 12px; line-height: 1.6; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-all; border: 1px solid #ffe58f; }
+        .confirm-bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 0; border-top: 1px solid var(--border); margin-top: 14px; }
+        .confirm-bar .info { font-size: 12px; color: var(--text2); }
+        .edit-prompt-link { font-size: 12px; color: var(--blue); cursor: pointer; text-decoration: underline; margin-left: 8px; }
+
+        /* ── 双栏布局 ── */
+        .content:has(.split-view) { overflow: hidden; }
+        .split-view { display: flex; height: 100%; position: relative; }
+        .split-left { width: 0; overflow: hidden; transition: width .25s ease, margin .25s ease, opacity .2s ease; opacity: 0; display: flex; flex-direction: column; flex-shrink: 0; }
+        .split-left.open { width: 45%; opacity: 1; margin-right: 16px; }
+        .split-left .card { flex: 1; display: flex; flex-direction: column; overflow: hidden; margin-bottom: 0; }
+        .split-left .msg-list, .split-left .member-list { flex: 1; overflow-y: auto; }
+        .split-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+        .split-right .card { display: flex; flex-direction: column; overflow: hidden; flex: 1; }
+        .split-right .qa-history { flex: 1; overflow-y: auto; }
+        .split-toggle { position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 2; width: 24px; height: 48px; background: var(--card); border: 1px solid var(--border); border-radius: 0 8px 8px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--text2); box-shadow: 2px 0 4px rgba(0,0,0,.05); transition: left .25s ease; }
+        .split-left.open ~ .split-toggle { left: 45%; }
+        .split-toggle:hover { color: var(--primary); border-color: var(--primary); }
+        /* 分组：左侧固定窄面板 */
+        .split-left.fixed { width: 200px; opacity: 1; margin-right: 16px; overflow: visible; transition: none; }
+        .split-left.fixed .card { padding: 14px; }
+        .split-left.fixed .member-item { padding: 4px 0; font-size: 12px; position: relative; }
+        .split-left.fixed .member-item .member-remove { display: none; position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: 10px; padding: 0 4px; background: var(--card); }
+        .split-left.fixed .member-item:hover .member-remove { display: inline; }
+
+        /* ── 模板选择器 ── */
+        .tpl-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+        .tpl-chip { padding: 4px 10px; border-radius: 14px; font-size: 12px; cursor: pointer; border: 1px solid var(--border); background: #fff; color: var(--text2); transition: all .2s; white-space: nowrap; }
+        .tpl-chip:hover { border-color: var(--primary); color: var(--primary); background: #f0faf4; }
+
+        /* ── 早报 ── */
+        .briefing-card { background: linear-gradient(135deg, #f0faf4 0%, #e8f4fd 100%); border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+        .briefing-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+        .briefing-meta { font-size: 12px; color: var(--text2); margin-bottom: 16px; }
+        .briefing-content { font-size: 13px; line-height: 1.8; white-space: pre-wrap; }
+        .briefing-content strong { color: var(--primary); }
+        .briefing-groups { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,.06); }
+        .briefing-group-tag { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(0,0,0,.05); color: var(--text2); }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>WeChat Insight</h1>
+            <p>微信群聊洞察工具</p>
+        </div>
+        <div class="sidebar-tabs">
+            <button class="sidebar-tab active" onclick="switchSidebarTab('groups')">分组</button>
+            <button class="sidebar-tab" onclick="switchSidebarTab('chats')">会话</button>
+        </div>
+
+        <!-- 分组面板 -->
+        <div id="groupsPanel">
+            <div class="session-list" id="groupList"></div>
+            <div class="add-group-btn" onclick="openNewGroupModal()">+ 新建分组</div>
+        </div>
+
+        <!-- 会话面板 -->
+        <div id="chatsPanel" style="display:none">
+            <div class="search-box"><input type="text" id="sessionFilter" placeholder="搜索会话..." oninput="filterSessions()"></div>
+            <div class="session-list" id="sessionList"><div class="welcome" style="height:200px"><span class="loading">加载会话列表中</span></div></div>
+        </div>
+
+        <div class="sidebar-footer">
+            <button class="config-btn" onclick="openConfig()">
+                <span class="config-dot" id="configDot"></span>
+                <span id="configText">AI 设置</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="main-header" id="mainHeader" style="display:none">
+            <h2 id="currentName">--</h2>
+            <div class="header-actions" id="headerActions"></div>
+        </div>
+        <div class="content" id="content">
+            <div class="welcome"><div class="welcome-inner"><div class="icon">💬</div><p>从左侧选择一个会话或分组开始</p>
+                <div style="margin-top:20px;display:flex;gap:10px;justify-content:center">
+                    <button class="btn btn-primary" onclick="doBriefing('today')" id="btnBriefingToday" style="padding:10px 20px;font-size:14px">📰 今日早报</button>
+                    <button class="btn btn-outline" onclick="doBriefing('days')" id="btnBriefingYesterday" style="padding:10px 20px;font-size:14px">📰 昨日回顾</button>
+                </div>
+            </div></div>
+        </div>
+    </div>
+</div>
+
+<!-- AI 配置弹窗 -->
+<div class="modal-overlay" id="configModal">
+    <div class="modal">
+        <h3>AI 模型配置</h3>
+        <div class="form-group"><label>API Base URL</label><input type="text" id="cfgBaseUrl" placeholder="https://api.deepseek.com/v1"><small>OpenAI 兼容接口地址</small></div>
+        <div class="form-group"><label>API Key</label><input type="password" id="cfgApiKey" placeholder="sk-..."></div>
+        <div class="form-group"><label>模型名称</label><input type="text" id="cfgModel" placeholder="deepseek-chat"><small>如 deepseek-chat, gpt-4o-mini, moonshot-v1-8k</small></div>
+        <div class="form-group"><label>系统提示词（角色设定）</label><textarea id="cfgSystemPrompt" rows="6" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:12px;line-height:1.6;outline:none;resize:vertical;font-family:inherit" placeholder="你是一位专业的..."></textarea><small>定义 AI 的角色和分析重点，留空则使用默认提示词</small></div>
+        <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('configModal')">取消</button><button class="btn btn-primary" onclick="saveConfig()">保存</button></div>
+    </div>
+</div>
+
+<!-- 新建分组弹窗 -->
+<div class="modal-overlay" id="newGroupModal">
+    <div class="modal">
+        <h3>新建分组</h3>
+        <div class="form-group"><label>分组名称</label><input type="text" id="newGroupName" placeholder="如：医院客户、技术社区..."></div>
+        <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('newGroupModal')">取消</button><button class="btn btn-blue" onclick="createGroup()">创建</button></div>
+    </div>
+</div>
+
+<!-- 添加成员弹窗 -->
+<div class="modal-overlay" id="addMemberModal">
+    <div class="modal">
+        <h3>添加会话到分组</h3>
+        <div class="tabs" style="margin-bottom:10px">
+            <button class="tab active" id="addTabSessions" onclick="switchAddMemberTab('sessions')">最近会话</button>
+            <button class="tab" id="addTabContacts" onclick="switchAddMemberTab('contacts')">搜索联系人</button>
+        </div>
+        <div id="addModeSessions">
+            <div class="search-box" style="padding:0; border:none; margin-bottom:8px"><input type="text" id="addMemberFilter" placeholder="筛选最近会话..." oninput="filterAddMembers()"></div>
+        </div>
+        <div id="addModeContacts" style="display:none">
+            <div style="display:flex;gap:6px;margin-bottom:8px">
+                <input type="text" id="contactSearchInput" placeholder="输入昵称、备注或wxid搜索..." style="flex:1;padding:7px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;outline:none" onkeydown="if(event.key==='Enter')doContactSearch()">
+                <button class="btn btn-blue btn-sm" onclick="doContactSearch()">搜索</button>
+            </div>
+        </div>
+        <div class="add-member-list" id="addMemberList"></div>
+        <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('addMemberModal')">取消</button><button class="btn btn-blue" onclick="confirmAddMembers()">添加选中</button></div>
+    </div>
+</div>
+
+<!-- 成员聊天记录弹窗 -->
+<div class="modal-overlay" id="memberChatModal">
+    <div class="modal" style="width:600px;max-height:85vh;display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h3 style="margin:0" id="memberChatTitle">聊天记录</h3>
+            <button class="btn btn-outline btn-sm" onclick="closeModal('memberChatModal')">关闭</button>
+        </div>
+        <div id="memberChatContent" style="flex:1;overflow-y:auto;min-height:0"></div>
+    </div>
+</div>
+
+<script>
+// ── 状态 ──
+let allSessions = [], allGroups = [];
+let currentSession = null, currentGroup = null;
+let currentHistoryData = null, currentMessages = [];
+let aiConfigured = false;
+let promptTemplates = [];
+let addMemberSelected = new Set();
+let currentSidebarTab = 'groups';
+
+function getSessionName(s) { return s.chat || s.username || '未知'; }
+function getSessionId(s) { return s.username || s.chat || ''; }
+
+// ── 初始化 ──
+async function init() {
+    // 检查 wechat-cli 是否就绪
+    try {
+        const r = await fetch('/api/init/status');
+        const status = await r.json();
+        if (!status.initialized || !status.usable) {
+            showSetupWizard(status);
+            return;
+        }
+    } catch(e) {}
+    await loadConfig();
+    await Promise.all([loadSessions(), loadGroups(), loadTemplates()]);
+}
+
+function showSetupWizard(status) {
+    document.getElementById('mainHeader').style.display = 'none';
+    document.getElementById('content').innerHTML = `
+        <div style="max-width:520px;margin:60px auto;padding:0 20px">
+            <div class="card" style="text-align:center">
+                <div style="font-size:48px;margin-bottom:16px">🔧</div>
+                <h3 style="font-size:18px;color:var(--text);margin-bottom:8px">首次使用，需要初始化</h3>
+                <p style="font-size:13px;color:var(--text2);margin-bottom:20px">
+                    WeChat Insight 需要提取微信数据库密钥才能读取聊天记录。<br>
+                    请确保微信已登录并正在运行，然后点击下方按钮。
+                </p>
+                <div style="display:flex;flex-direction:column;gap:10px;align-items:center">
+                    <button class="btn btn-primary" style="padding:10px 32px;font-size:14px" onclick="runInit(false)">
+                        自动初始化
+                    </button>
+                    <button class="btn btn-outline" style="padding:8px 24px;font-size:13px" onclick="runInit(true)">
+                        强制重新初始化 (--force)
+                    </button>
+                    <div style="margin-top:8px;width:100%">
+                        <details style="text-align:left">
+                            <summary style="font-size:12px;color:var(--text2);cursor:pointer">高级选项：手动指定数据目录</summary>
+                            <div style="margin-top:8px;display:flex;gap:6px">
+                                <input type="text" id="customDbDir" placeholder="微信数据目录路径（留空则自动检测）" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;outline:none">
+                                <button class="btn btn-outline btn-sm" onclick="runInit(true, document.getElementById('customDbDir').value)">初始化</button>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+                <div id="initOutput" style="margin-top:16px;display:none"></div>
+            </div>
+        </div>`;
+}
+
+async function runInit(force, dbDir) {
+    const out = document.getElementById('initOutput');
+    out.style.display = 'block';
+    out.innerHTML = '<div style="padding:12px"><span class="spinner"></span><span class="loading">正在初始化，提取密钥中（可能需要30秒）</span></div>';
+    try {
+        const body = { force: !!force };
+        if (dbDir) body.db_dir = dbDir;
+        const r = await fetch('/api/init/run', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const d = await r.json();
+        if (d.ok) {
+            out.innerHTML = `<div style="padding:12px;background:#f0faf4;border-radius:8px;font-size:12px;text-align:left">
+                <div style="color:var(--primary);font-weight:600;margin-bottom:6px">初始化成功!</div>
+                <pre style="white-space:pre-wrap;color:var(--text2);margin:0">${esc(d.output)}</pre>
+                <div style="text-align:center;margin-top:12px">
+                    <button class="btn btn-primary" onclick="location.reload()">开始使用</button>
+                </div>
+            </div>`;
+        } else {
+            out.innerHTML = `<div style="padding:12px;background:#fff1f0;border-radius:8px;font-size:12px;text-align:left">
+                <div style="color:var(--danger);font-weight:600;margin-bottom:6px">初始化失败</div>
+                <pre style="white-space:pre-wrap;color:var(--text2);margin:0">${esc(d.output || d.error)}</pre>
+                <div style="color:var(--text2);margin-top:8px;font-size:11px">
+                    提示：请确保微信已登录且正在运行，然后尝试"强制重新初始化"
+                </div>
+            </div>`;
+        }
+    } catch(e) {
+        out.innerHTML = `<div style="padding:12px;color:var(--danger)">请求失败: ${esc(e.message)}</div>`;
+    }
+}
+
+async function loadTemplates() {
+    try { const r = await fetch('/api/templates'); promptTemplates = await r.json(); } catch(e) {}
+}
+
+function renderTemplateBar(isGroup) {
+    if (!promptTemplates.length) return '';
+    const chips = promptTemplates.map(t =>
+        `<span class="tpl-chip" onclick="applyTemplate('${t.id}')" title="${esc(t.prompt)}">${t.icon} ${esc(t.name)}</span>`
+    ).join('');
+    return `<div class="tpl-bar">${chips}</div>`;
+}
+
+function applyTemplate(tplId) {
+    const tpl = promptTemplates.find(t => t.id === tplId);
+    if (!tpl) return;
+    const input = document.getElementById('qaInput');
+    if (input) { input.value = tpl.prompt; }
+    doAsk();
+}
+
+async function doBriefing(mode) {
+    currentSession = null; currentGroup = null;
+    document.getElementById('mainHeader').style.display = 'flex';
+    document.getElementById('currentName').textContent = mode === 'today' ? '今日早报' : '昨日回顾';
+    document.getElementById('headerActions').innerHTML = `
+        <button class="btn btn-primary" onclick="doBriefing('today')">今日</button>
+        <button class="btn btn-outline" onclick="doBriefing('days')">昨日</button>`;
+    const content = document.getElementById('content');
+    content.innerHTML = '<div class="welcome"><span class="spinner"></span><span class="loading">正在收集所有分组消息并生成早报</span></div>';
+    try {
+        const body = mode === 'today' ? {mode:'today'} : {mode:'days', days:1};
+        const r = await fetch('/api/briefing',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const d = await r.json();
+        if (d.error) { content.innerHTML = `<div style="padding:40px"><div class="card"><span style="color:var(--danger)">${esc(d.error)}</span></div></div>`; return; }
+        const groupTags = (d.group_details||[]).map(g =>
+            `<span class="briefing-group-tag">${esc(g.group)}: ${g.count}条</span>`
+        ).join('');
+        content.innerHTML = `<div style="padding:0">
+            <div class="briefing-card">
+                <h3>📰 ${mode === 'today' ? '今日早报' : '昨日回顾'}</h3>
+                <div class="briefing-meta">共 ${d.total_messages} 条消息，来自 ${(d.group_details||[]).length} 个分组</div>
+                <div class="briefing-content">${fmtMd(d.briefing)}</div>
+                <div class="briefing-groups">${groupTags}</div>
+            </div>
+        </div>`;
+    } catch(e) { content.innerHTML = `<div style="padding:40px"><div class="card"><span style="color:var(--danger)">请求失败</span></div></div>`; }
+}
+
+// ── 侧边栏切换 ──
+function switchSidebarTab(tab) {
+    currentSidebarTab = tab;
+    document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.sidebar-tab')[tab === 'groups' ? 0 : 1].classList.add('active');
+    document.getElementById('chatsPanel').style.display = tab === 'chats' ? '' : 'none';
+    document.getElementById('groupsPanel').style.display = tab === 'groups' ? '' : 'none';
+}
+
+// ── 会话列表 ──
+async function loadSessions() {
+    const el = document.getElementById('sessionList');
+    try {
+        const resp = await fetch('/api/sessions');
+        const data = await resp.json();
+        if (data.error) { el.innerHTML = `<div class="welcome" style="height:200px"><span style="color:var(--danger)">${data.error}</span></div>`; return; }
+        allSessions = Array.isArray(data) ? data : [];
+        renderSessions(allSessions);
+    } catch (e) { el.innerHTML = `<div class="welcome" style="height:200px"><span style="color:var(--danger)">加载失败</span></div>`; }
+}
+
+function renderSessions(sessions) {
+    const el = document.getElementById('sessionList');
+    if (!sessions.length) { el.innerHTML = '<div class="welcome" style="height:200px"><span>暂无会话</span></div>'; return; }
+    el.innerHTML = sessions.map((s,i) => {
+        const name = getSessionName(s), last = s.last_message || '', time = s.time || '';
+        const active = currentSession && !currentGroup && getSessionId(currentSession) === getSessionId(s) ? 'active' : '';
+        return `<div class="session-item ${active}" onclick="selectSessionByIndex(${i})">
+            <div class="session-name">${esc(name)}</div>
+            <div class="session-meta">${esc(time)}  ${esc(last.slice(0,30))}</div>
+        </div>`;
+    }).join('');
+}
+
+function filterSessions() {
+    const q = document.getElementById('sessionFilter').value.toLowerCase();
+    renderSessions(q ? allSessions.filter(s => getSessionName(s).toLowerCase().includes(q)) : allSessions);
+}
+
+function selectSessionByIndex(idx) {
+    const q = document.getElementById('sessionFilter').value.toLowerCase();
+    const list = q ? allSessions.filter(s => getSessionName(s).toLowerCase().includes(q)) : allSessions;
+    if (idx >= 0 && idx < list.length) selectSession(list[idx]);
+}
+
+async function selectSession(session) {
+    currentSession = session; currentGroup = null;
+    document.getElementById('currentName').textContent = getSessionName(session);
+    document.getElementById('mainHeader').style.display = 'flex';
+    document.getElementById('headerActions').innerHTML = `
+        <select class="limit-select" id="msgMode" onchange="loadHistory()">
+            <option value="today" selected>当天消息</option>
+            <option value="days-1">最近 1 天</option>
+            <option value="days-3">最近 3 天</option>
+            <option value="days-5">最近 5 天</option>
+            <option value="days-7">最近 7 天</option>
+            <option value="days-14">最近 14 天</option>
+            <option value="limit-50">最近 50 条</option>
+            <option value="limit-100">最近 100 条</option>
+            <option value="limit-200">最近 200 条</option>
+        </select>
+        <button class="btn btn-primary" id="btnSummarize" onclick="doSummarize()">AI 分析</button>
+        <button class="btn btn-outline" onclick="loadHistory()">刷新</button>`;
+    filterSessions(); renderGroups();
+    await loadHistory();
+}
+
+// ── 聊天记录 ──
+async function loadHistory() {
+    if (!currentSession) return;
+    const id = getSessionId(currentSession);
+    const { mode, days, limit } = getModeAndLimit();
+    // 如果左侧面板已渲染，只更新左侧消息列表，不重建整个页面
+    const msgList = document.querySelector('.split-left .msg-list');
+    if (msgList) {
+        msgList.innerHTML = '<div style="text-align:center;padding:20px"><span class="spinner"></span><span class="loading">加载中</span></div>';
+        try {
+            const resp = await fetch(`/api/history?name=${encodeURIComponent(id)}&mode=${mode}&days=${days}&limit=${limit}`);
+            const data = await resp.json();
+            if (data.error) { msgList.innerHTML = `<div style="color:var(--danger);text-align:center;padding:20px">${data.error}</div>`; return; }
+            currentHistoryData = data; currentMessages = data.parsed_messages || [];
+            const msgCount = currentMessages.length;
+            const senders = new Set(currentMessages.filter(m=>m.sender).map(m=>m.sender));
+            msgList.closest('.card').querySelector('h3').textContent = `聊天记录 (${msgCount} 条，${senders.size} 人)`;
+            msgList.innerHTML = currentMessages.length ? currentMessages.map(m=>`<div class="msg-item">${m.sender?`<span class="msg-sender">${esc(m.sender)}</span>`:''}<span class="msg-time">${esc(m.time)}</span><div class="msg-content">${renderContent(m.content)}</div></div>`).join('') : '<div style="color:var(--text2);text-align:center;padding:40px 0">暂无消息</div>';
+        } catch (e) { msgList.innerHTML = '<div style="color:var(--danger);text-align:center;padding:20px">加载失败</div>'; }
+        return;
+    }
+    // 首次加载，渲染完整页面
+    const content = document.getElementById('content');
+    content.innerHTML = '<div class="welcome"><span class="spinner"></span><span class="loading">加载聊天记录中</span></div>';
+    try {
+        const resp = await fetch(`/api/history?name=${encodeURIComponent(id)}&mode=${mode}&days=${days}&limit=${limit}`);
+        const data = await resp.json();
+        if (data.error) { content.innerHTML = `<div class="welcome"><span style="color:var(--danger)">${data.error}</span></div>`; return; }
+        currentHistoryData = data; currentMessages = data.parsed_messages || [];
+        renderChatContent();
+    } catch (e) { content.innerHTML = `<div class="welcome"><span style="color:var(--danger)">加载失败</span></div>`; }
+}
+
+function renderChatContent() {
+    const c = document.getElementById('content');
+    const msgCount = currentMessages.length;
+    const senders = new Set(currentMessages.filter(m=>m.sender).map(m=>m.sender));
+    c.innerHTML = `
+        <div class="split-view">
+            <div class="split-left" id="splitLeft">
+                <div class="card">
+                    <h3>聊天记录 (${msgCount} 条，${senders.size} 人)</h3>
+                    <div class="msg-list">
+                        ${currentMessages.length ? currentMessages.map(m=>`<div class="msg-item">${m.sender?`<span class="msg-sender">${esc(m.sender)}</span>`:''}<span class="msg-time">${esc(m.time)}</span><div class="msg-content">${renderContent(m.content)}</div></div>`).join('') : '<div style="color:var(--text2);text-align:center;padding:40px 0">暂无消息</div>'}
+                    </div>
+                </div>
+            </div>
+            <div class="split-toggle" onclick="toggleSplitLeft()" id="splitToggle" title="展开/收起聊天记录">&#9664;</div>
+            <div class="split-right">
+                <div class="card">
+                    <h3>AI 问答</h3>
+                    ${renderTemplateBar(false)}
+                    <div class="qa-input-row"><input type="text" id="qaInput" placeholder="比如：最近在讨论什么？" onkeydown="if(event.key==='Enter')doAsk()"><button class="btn btn-primary" onclick="doAsk()">提问</button></div>
+                    <div class="qa-history" id="qaHistory"></div>
+                </div>
+                <div id="summaryArea"></div>
+            </div>
+        </div>`;
+}
+
+
+// ── 单会话 AI ──
+// 暂存预览数据，确认后用于分析
+let pendingAnalysis = null;
+
+async function doSummarize() {
+    if (!currentSession) return;
+    const id = getSessionId(currentSession);
+    const { mode, days, limit } = getModeAndLimit();
+    const btn = document.getElementById('btnSummarize'); btn.disabled=true; btn.textContent='加载中...';
+    const area = document.getElementById('summaryArea');
+    area.innerHTML = '<div class="card"><span class="spinner"></span><span class="loading">正在获取聊天记录</span></div>';
+    try {
+        // 先获取上下文预览
+        const r = await fetch('/api/context',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:id,limit,mode,days})});
+        const d = await r.json();
+        if (d.error) { area.innerHTML = `<div class="card"><span style="color:var(--danger)">${d.error}</span></div>`; btn.disabled=false; btn.textContent='AI 分析'; return; }
+        // 获取当前系统提示词
+        const cfgR = await fetch('/api/config');
+        const cfg = await cfgR.json();
+        const sysPrompt = cfg.system_prompt || '（未设置系统提示词）';
+        // 暂存分析参数
+        pendingAnalysis = { type: 'single', name: id, limit, mode, days };
+        // 渲染预览确认界面
+        area.innerHTML = `<div class="card">
+            <h3>确认分析 —「${esc(d.chat_name)}」</h3>
+            <div class="preview-section">
+                <div class="preview-section-title"><span class="badge">系统提示词</span><span class="edit-prompt-link" onclick="openConfig()">修改</span></div>
+                <div class="preview-prompt">${esc(sysPrompt)}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-section-title"><span class="badge badge-blue">原始对话</span> ${d.message_count || 0} 条消息</div>
+                <div class="preview-pre">${renderContext(d.context)}</div>
+            </div>
+            <div class="confirm-bar">
+                <span class="info">确认上下文和提示词无误后，点击开始分析</span>
+                <button class="btn btn-primary" onclick="confirmAnalyze()">开始分析</button>
+            </div>
+        </div>`;
+    } catch(e) { area.innerHTML = `<div class="card"><span style="color:var(--danger)">请求失败</span></div>`; }
+    btn.disabled=false; btn.textContent='AI 分析';
+}
+
+async function confirmAnalyze() {
+    if (!pendingAnalysis) return;
+    const p = pendingAnalysis;
+    const area = document.getElementById('summaryArea');
+    area.innerHTML = '<div class="card"><span class="spinner"></span><span class="loading">AI 正在分析中，请稍候</span></div>';
+    try {
+        let url, body;
+        if (p.type === 'single') {
+            url = '/api/summarize';
+            body = { name: p.name, limit: p.limit, mode: p.mode, days: p.days };
+        } else {
+            url = `/api/groups/${p.groupId}/summarize`;
+            body = { limit: p.limit, mode: p.mode, days: p.days };
+        }
+        const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const d = await r.json();
+        if (d.error) { area.innerHTML = `<div class="card"><span style="color:var(--danger)">${d.error}</span></div>`; return; }
+        if (p.type === 'single') {
+            area.innerHTML = `<div class="card">
+                <h3>AI 分析结果 (${d.message_count || 0} 条消息)</h3>
+                <div class="summary-content">${fmtMd(d.summary)}</div>
+            </div>`;
+        } else {
+            const detailHtml = d.details ? d.details.map(dt=>`<span style="margin-right:12px">${esc(dt.chat)}: ${dt.count}条</span>`).join('') : '';
+            area.innerHTML = `<div class="card card-blue">
+                <h3>AI 分析结果「${esc(d.group_name)}」(共 ${d.total_messages} 条消息)</h3>
+                ${detailHtml ? `<div style="font-size:11px;color:var(--text2);margin-bottom:8px">${detailHtml}</div>` : ''}
+                <div class="summary-content">${fmtMd(d.summary)}</div>
+            </div>`;
+        }
+    } catch(e) { area.innerHTML = `<div class="card"><span style="color:var(--danger)">请求失败</span></div>`; }
+    pendingAnalysis = null;
+}
+
+function getModeAndLimit() {
+    // 分组模式用 msgMode 选择器，单会话用 msgLimit
+    const modeEl = document.getElementById('msgMode');
+    const limitEl = document.getElementById('msgLimit');
+    if (modeEl) {
+        const v = modeEl.value;
+        if (v === 'today') return { mode: 'today', days: 0, limit: 500 };
+        if (v.startsWith('days-')) return { mode: 'days', days: parseInt(v.replace('days-','')) || 3, limit: 500 };
+        return { mode: 'limit', days: 0, limit: parseInt(v.replace('limit-','')) || 50 };
+    }
+    return { mode: 'limit', days: 0, limit: parseInt(limitEl?.value) || 50 };
+}
+
+async function doAsk() {
+    const input = document.getElementById('qaInput'), q = input.value.trim();
+    if (!q) return;
+    const isGroup = !!currentGroup;
+    const id = isGroup ? currentGroup.id : getSessionId(currentSession);
+    const { mode, days, limit } = getModeAndLimit();
+    const hist = document.getElementById('qaHistory');
+    hist.innerHTML += `<div class="qa-item-q">${esc(q)}</div><div class="qa-item-a" id="qaLoading"><span class="spinner"></span><span class="loading">AI 正在分析</span></div>`;
+    input.value = ''; hist.scrollTop = hist.scrollHeight;
+    try {
+        const url = isGroup ? `/api/groups/${id}/ask` : '/api/ask';
+        const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:id,question:q,limit,mode,days})});
+        const d = await r.json();
+        const loadEl = document.getElementById('qaLoading');
+        if (d.error) { loadEl.innerHTML = `<span style="color:var(--danger)">${d.error}</span>`; }
+        else {
+            loadEl.innerHTML = fmtMd(d.answer);
+        }
+        loadEl.removeAttribute('id');
+    } catch(e) { const el=document.getElementById('qaLoading'); if(el){el.innerHTML=`<span style="color:var(--danger)">请求失败</span>`; el.removeAttribute('id');} }
+}
+
+// ══════════════════════════════════════════════
+// ── 分组功能 ──
+// ══════════════════════════════════════════════
+
+let groupMessageCounts = {};
+
+async function loadGroups() {
+    try { const r = await fetch('/api/groups'); allGroups = await r.json(); renderGroups(); } catch(e) {}
+    loadGroupMessageCounts();
+}
+
+async function loadGroupMessageCounts() {
+    try {
+        const r = await fetch('/api/groups/message-counts');
+        groupMessageCounts = await r.json();
+        renderGroups();
+    } catch(e) {}
+}
+
+function renderGroups() {
+    const el = document.getElementById('groupList');
+    if (!allGroups.length) { el.innerHTML = '<div class="welcome" style="height:120px;font-size:13px"><span>暂无分组，点击下方创建</span></div>'; return; }
+    el.innerHTML = allGroups.map(g => {
+        const active = currentGroup && currentGroup.id === g.id ? 'active' : '';
+        const msgCnt = groupMessageCounts[g.id];
+        const msgStr = msgCnt !== undefined ? ` · ${msgCnt} 条消息` : '';
+        return `<div class="group-item ${active}" onclick="selectGroup('${g.id}')">
+            <span class="group-name">${esc(g.name)}</span>
+            <span class="group-count">${g.members.length} 会话${msgStr}</span>
+        </div>`;
+    }).join('');
+}
+
+function openNewGroupModal() { document.getElementById('newGroupName').value=''; openModal('newGroupModal'); }
+
+async function createGroup() {
+    const name = document.getElementById('newGroupName').value.trim();
+    if (!name) return;
+    try {
+        const r = await fetch('/api/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+        const g = await r.json();
+        allGroups.push(g); renderGroups(); closeModal('newGroupModal');
+        selectGroup(g.id);
+    } catch(e) {}
+}
+
+async function selectGroup(groupId) {
+    currentGroup = allGroups.find(g=>g.id===groupId); currentSession = null;
+    if (!currentGroup) return;
+    document.getElementById('currentName').textContent = '分组：' + currentGroup.name;
+    document.getElementById('mainHeader').style.display = 'flex';
+    document.getElementById('headerActions').innerHTML = `
+        <select class="limit-select" id="msgMode">
+            <option value="today" selected>当天消息</option>
+            <option value="days-3">最近 3 天</option>
+            <option value="days-7">最近 7 天</option>
+            <option value="days-14">最近 14 天</option>
+            <option value="limit-50">每会话 50 条</option>
+            <option value="limit-100">每会话 100 条</option>
+            <option value="limit-200">每会话 200 条</option>
+        </select>
+        <button class="btn btn-blue" id="btnGroupSummarize" onclick="doGroupSummarize()">AI 汇总分析</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCurrentGroup()">删除分组</button>`;
+    renderGroups(); filterSessions();
+    renderGroupContent();
+    loadGroupCounts();
+}
+
+let groupMemberCounts = {};
+
+async function loadGroupCounts() {
+    if (!currentGroup) return;
+    const { mode, days, limit } = getModeAndLimit();
+    try {
+        const r = await fetch(`/api/groups/${currentGroup.id}/counts`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode, days})});
+        const data = await r.json();
+        if (data && !data.error) {
+            groupMemberCounts = data;
+            renderGroupContent();
+        }
+    } catch(e) {}
+}
+
+function renderGroupContent() {
+    const g = currentGroup, c = document.getElementById('content');
+    const members = g.members || [];
+    c.innerHTML = `
+        <div class="split-view">
+            <div class="split-left fixed">
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                        <h3 style="margin:0;font-size:13px">成员 (${members.length})</h3>
+                        <button class="btn btn-blue btn-sm" style="padding:2px 8px;font-size:11px" onclick="openAddMemberModal()">+ 添加</button>
+                    </div>
+                    <div class="member-list" style="flex:1;overflow-y:auto">
+                        ${members.length ? members.map(m=>{
+                            const cnt = groupMemberCounts[m.username];
+                            const cntStr = cnt !== undefined ? cnt + '' : '-';
+                            return `<div class="member-item" style="cursor:pointer" onclick="showMemberChat('${escAttr(m.username)}','${escAttr(m.chat || m.username)}')">
+                                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">${esc(m.chat || m.username)}</span>
+                                <span style="font-size:11px;color:var(--text2);flex-shrink:0;margin-left:4px">${cntStr}</span>
+                                <button class="member-remove" onclick="event.stopPropagation();removeMember('${escAttr(m.username)}')">x</button>
+                            </div>`;
+                        }).join('') : '<div style="color:var(--text2);font-size:12px;padding:12px 0;text-align:center">暂无成员</div>'}
+                    </div>
+                </div>
+            </div>
+            <div class="split-right">
+                <div class="card card-blue">
+                    <h3>AI 问答（基于分组内所有会话）</h3>
+                    ${renderTemplateBar(true)}
+                    <div class="qa-input-row"><input type="text" id="qaInput" placeholder="比如：各群最近在讨论什么？" onkeydown="if(event.key==='Enter')doAsk()"><button class="btn btn-blue" onclick="doAsk()">提问</button></div>
+                    <div class="qa-history" id="qaHistory"></div>
+                </div>
+                <div id="summaryArea"></div>
+            </div>
+        </div>`;
+}
+
+async function showMemberChat(username, chatName) {
+    document.getElementById('memberChatTitle').textContent = chatName + ' - 聊天记录';
+    const el = document.getElementById('memberChatContent');
+    el.innerHTML = '<div style="text-align:center;padding:30px"><span class="spinner"></span><span class="loading">加载中</span></div>';
+    openModal('memberChatModal');
+    try {
+        const { mode, days, limit } = getModeAndLimit();
+        const r = await fetch(`/api/history?name=${encodeURIComponent(username)}&mode=${mode}&days=${days}&limit=${limit}`);
+        const data = await r.json();
+        if (data.error) { el.innerHTML = `<div style="color:var(--danger);padding:20px;text-align:center">${esc(data.error)}</div>`; return; }
+        const msgs = data.parsed_messages || [];
+        if (!msgs.length) { el.innerHTML = '<div style="color:var(--text2);padding:20px;text-align:center">暂无消息</div>'; return; }
+        el.innerHTML = msgs.map(m => `<div class="msg-item">${m.sender?`<span class="msg-sender">${esc(m.sender)}</span>`:''}<span class="msg-time">${esc(m.time)}</span><div class="msg-content">${renderContent(m.content)}</div></div>`).join('');
+    } catch(e) { el.innerHTML = '<div style="color:var(--danger);padding:20px;text-align:center">加载失败</div>'; }
+}
+
+// ── 分组成员管理 ──
+let addMemberTab = 'sessions';
+// addMemberSelected: Map<username, chatName> 用于同时记住id和名称
+let addMemberSelectedMap = new Map();
+
+function openAddMemberModal() {
+    addMemberSelected = new Set();
+    addMemberSelectedMap = new Map();
+    addMemberTab = 'sessions';
+    document.getElementById('addTabSessions').classList.add('active');
+    document.getElementById('addTabContacts').classList.remove('active');
+    document.getElementById('addModeSessions').style.display = '';
+    document.getElementById('addModeContacts').style.display = 'none';
+    document.getElementById('addMemberFilter').value = '';
+    document.getElementById('contactSearchInput').value = '';
+    const existing = new Set((currentGroup?.members || []).map(m=>m.username));
+    const filtered = allSessions.filter(s => !existing.has(getSessionId(s)));
+    renderAddMemberList(filtered.map(s => ({ id: getSessionId(s), name: getSessionName(s) })));
+    openModal('addMemberModal');
+}
+
+function switchAddMemberTab(tab) {
+    addMemberTab = tab;
+    document.getElementById('addTabSessions').classList.toggle('active', tab === 'sessions');
+    document.getElementById('addTabContacts').classList.toggle('active', tab === 'contacts');
+    document.getElementById('addModeSessions').style.display = tab === 'sessions' ? '' : 'none';
+    document.getElementById('addModeContacts').style.display = tab === 'contacts' ? '' : 'none';
+    if (tab === 'sessions') {
+        filterAddMembers();
+    } else {
+        document.getElementById('addMemberList').innerHTML = '<div style="padding:16px;color:var(--text2);text-align:center">输入关键词搜索联系人</div>';
+    }
+}
+
+function renderAddMemberList(items) {
+    // items: [{id, name, detail?}]
+    const existing = new Set((currentGroup?.members || []).map(m=>m.username));
+    const el = document.getElementById('addMemberList');
+    const available = items.filter(it => !existing.has(it.id));
+    if (!available.length) { el.innerHTML = '<div style="padding:16px;color:var(--text2);text-align:center">没有可添加的项目</div>'; return; }
+    el.innerHTML = available.map(it => {
+        const checked = addMemberSelectedMap.has(it.id) ? 'checked' : '';
+        const sel = addMemberSelectedMap.has(it.id) ? 'selected' : '';
+        const detailStr = it.detail ? `<span style="font-size:11px;color:var(--text2);margin-left:8px">${esc(it.detail)}</span>` : '';
+        return `<div class="add-member-item ${sel}" onclick="toggleAddMember('${escAttr(it.id)}', '${escAttr(it.name)}', this)">
+            <input type="checkbox" class="add-member-cb" ${checked} onclick="event.stopPropagation()">
+            <span>${esc(it.name)}</span>${detailStr}
+        </div>`;
+    }).join('');
+}
+
+function filterAddMembers() {
+    const q = document.getElementById('addMemberFilter').value.toLowerCase();
+    const items = allSessions
+        .filter(s => getSessionName(s).toLowerCase().includes(q))
+        .map(s => ({ id: getSessionId(s), name: getSessionName(s) }));
+    renderAddMemberList(items);
+}
+
+async function doContactSearch() {
+    const q = document.getElementById('contactSearchInput').value.trim();
+    if (!q) return;
+    const el = document.getElementById('addMemberList');
+    el.innerHTML = '<div style="padding:16px;color:var(--text2);text-align:center"><span class="spinner"></span> 搜索中...</div>';
+    try {
+        const r = await fetch(`/api/contacts?q=${encodeURIComponent(q)}`);
+        const data = await r.json();
+        if (data.error) { el.innerHTML = `<div style="padding:16px;color:var(--danger);text-align:center">${data.error}</div>`; return; }
+        const contacts = Array.isArray(data) ? data : (data.contacts || []);
+        if (!contacts.length) { el.innerHTML = '<div style="padding:16px;color:var(--text2);text-align:center">未找到匹配的联系人</div>'; return; }
+        const items = contacts.map(c => ({
+            id: c.username || c.wxid || c.id || '',
+            name: c.remark || c.nick_name || c.nickname || c.name || c.chat || c.username || '未知',
+            detail: c.username || c.wxid || ''
+        }));
+        renderAddMemberList(items);
+    } catch(e) { el.innerHTML = `<div style="padding:16px;color:var(--danger);text-align:center">搜索失败: ${esc(e.message||String(e))}</div>`; }
+}
+
+function toggleAddMember(id, name, el) {
+    if (addMemberSelectedMap.has(id)) {
+        addMemberSelectedMap.delete(id);
+        addMemberSelected.delete(id);
+    } else {
+        addMemberSelectedMap.set(id, name);
+        addMemberSelected.add(id);
+    }
+    el.querySelector('.add-member-cb').checked = addMemberSelectedMap.has(id);
+    el.classList.toggle('selected', addMemberSelectedMap.has(id));
+}
+
+async function confirmAddMembers() {
+    if (!currentGroup || !addMemberSelectedMap.size) { closeModal('addMemberModal'); return; }
+    for (const [username, chat] of addMemberSelectedMap) {
+        await fetch(`/api/groups/${currentGroup.id}/add`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username, chat})});
+    }
+    await loadGroups();
+    currentGroup = allGroups.find(g=>g.id===currentGroup.id);
+    closeModal('addMemberModal');
+    renderGroupContent();
+}
+
+async function removeMember(username) {
+    if (!currentGroup) return;
+    await fetch(`/api/groups/${currentGroup.id}/remove`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username})});
+    await loadGroups();
+    currentGroup = allGroups.find(g=>g.id===currentGroup.id);
+    renderGroupContent();
+}
+
+async function deleteCurrentGroup() {
+    if (!currentGroup || !confirm(`确定删除分组「${currentGroup.name}」？`)) return;
+    await fetch(`/api/groups/${currentGroup.id}`,{method:'DELETE'});
+    currentGroup = null;
+    await loadGroups();
+    document.getElementById('mainHeader').style.display = 'none';
+    document.getElementById('content').innerHTML = `<div class="welcome"><div class="welcome-inner"><div class="icon">💬</div><p>从左侧选择一个会话或分组开始</p>
+        <div style="margin-top:20px;display:flex;gap:10px;justify-content:center">
+            <button class="btn btn-primary" onclick="doBriefing('today')" style="padding:10px 20px;font-size:14px">📰 今日早报</button>
+            <button class="btn btn-outline" onclick="doBriefing('days')" style="padding:10px 20px;font-size:14px">📰 昨日回顾</button>
+        </div>
+    </div></div>`;
+}
+
+// ── 分组 AI 汇总 ──
+async function doGroupSummarize() {
+    if (!currentGroup) return;
+    const { mode, days, limit } = getModeAndLimit();
+    const btn = document.getElementById('btnGroupSummarize'); btn.disabled=true; btn.textContent='加载中...';
+    const area = document.getElementById('summaryArea');
+    const modeText = mode === 'today' ? '当天' : (mode === 'days' ? `最近 ${days} 天` : `每会话 ${limit} 条`);
+    area.innerHTML = `<div class="card"><span class="spinner"></span><span class="loading">正在收集 ${currentGroup.members.length} 个会话的${modeText}消息</span></div>`;
+    try {
+        // 先获取上下文预览
+        const r = await fetch(`/api/groups/${currentGroup.id}/context`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({limit,mode,days})});
+        const d = await r.json();
+        if (d.error) { area.innerHTML = `<div class="card"><span style="color:var(--danger)">${d.error}</span></div>`; btn.disabled=false; btn.textContent='AI 汇总分析'; return; }
+        // 获取当前系统提示词
+        const cfgR = await fetch('/api/config');
+        const cfg = await cfgR.json();
+        const sysPrompt = cfg.system_prompt || '（未设置系统提示词）';
+        // 暂存分析参数
+        pendingAnalysis = { type: 'group', groupId: currentGroup.id, limit, mode, days };
+        // 渲染预览确认界面
+        const detailHtml = d.details ? d.details.map(dt=>`<span style="margin-right:12px">${esc(dt.chat)}: ${dt.count}条</span>`).join('') : '';
+        area.innerHTML = `<div class="card card-blue">
+            <h3>确认分析 —「${esc(d.group_name)}」(共 ${d.total_messages} 条消息)</h3>
+            ${detailHtml ? `<div style="font-size:11px;color:var(--text2);margin-bottom:10px">${detailHtml}</div>` : ''}
+            <div class="preview-section">
+                <div class="preview-section-title"><span class="badge">系统提示词</span><span class="edit-prompt-link" onclick="openConfig()">修改</span></div>
+                <div class="preview-prompt">${esc(sysPrompt)}</div>
+            </div>
+            <div class="preview-section">
+                <div class="preview-section-title"><span class="badge badge-blue">原始对话</span> ${esc(d.context_label)}</div>
+                <div class="preview-pre">${renderContext(d.context)}</div>
+            </div>
+            <div class="confirm-bar">
+                <span class="info">确认上下文和提示词无误后，点击开始分析</span>
+                <button class="btn btn-blue" onclick="confirmAnalyze()">开始分析</button>
+            </div>
+        </div>`;
+    } catch(e) { area.innerHTML = `<div class="card"><span style="color:var(--danger)">请求失败</span></div>`; }
+    btn.disabled=false; btn.textContent='AI 汇总分析';
+}
+
+// ── 配置 ──
+async function loadConfig() {
+    try { const r = await fetch('/api/config'); const d = await r.json(); aiConfigured=d.configured; updateConfigUI(); if(d.api_base_url) document.getElementById('cfgBaseUrl').value=d.api_base_url; if(d.model_name) document.getElementById('cfgModel').value=d.model_name; if(d.system_prompt!==undefined) document.getElementById('cfgSystemPrompt').value=d.system_prompt; } catch(e){}
+}
+function updateConfigUI() { document.getElementById('configDot').className='config-dot '+(aiConfigured?'on':'off'); document.getElementById('configText').textContent=aiConfigured?'AI 已连接':'AI 未配置 - 点击设置'; }
+function openConfig() { openModal('configModal'); }
+async function saveConfig() {
+    const b=document.getElementById('cfgBaseUrl').value.trim(), k=document.getElementById('cfgApiKey').value.trim(), m=document.getElementById('cfgModel').value.trim(), sp=document.getElementById('cfgSystemPrompt').value;
+    try { const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_base_url:b,api_key:k,model_name:m,system_prompt:sp})}); const d=await r.json(); aiConfigured=d.configured; updateConfigUI(); closeModal('configModal'); } catch(e){ alert('保存失败'); }
+}
+
+// ── 工具 ──
+function esc(s) { if(!s) return ''; const d=document.createElement('div'); d.textContent=String(s); return d.innerHTML; }
+function renderContent(s) {
+    if (!s) return '';
+    const imgMatch = s.match(/^\[图片\]\s*(.+\.dat)$/);
+    if (imgMatch) {
+        const src = '/api/media?path=' + encodeURIComponent(imgMatch[1]);
+        return `<img src="${src}" style="max-width:300px;max-height:300px;border-radius:6px;cursor:pointer;display:block;margin:4px 0" onclick="window.open(this.src)" onerror="this.outerHTML='<span style=\\'color:var(--text2)\\'>[图片无法加载]</span>'" loading="lazy">`;
+    }
+    return esc(s);
+}
+function renderContext(text) {
+    if (!text) return '';
+    return text.split('\n').map(line => {
+        const m = line.match(/^(.*?\[图片\])\s+(.+\.dat)$/);
+        if (m) {
+            const src = '/api/media?path=' + encodeURIComponent(m[2]);
+            return esc(m[1]) + `<br><img src="${src}" style="max-width:200px;max-height:200px;border-radius:4px;margin:2px 0" loading="lazy" onerror="this.outerHTML='[图片无法加载]'">`;
+        }
+        return esc(line);
+    }).join('\n');
+}
+function escAttr(s) { return esc(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
+function fmtMd(t) { if(!t) return ''; return esc(t).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>'); }
+function toggleSplitLeft() {
+    const left = document.getElementById('splitLeft');
+    const btn = document.getElementById('splitToggle');
+    const isOpen = left.classList.toggle('open');
+    btn.innerHTML = isOpen ? '&#9654;' : '&#9664;';
+}
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+init();
+</script>
+</body>
+</html>
